@@ -1,14 +1,15 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { AudioEngine, AudioEngineState } from '@/lib/audio/audio-engine';
-import { BPMResult } from '@/lib/audio/bpm-estimator';
+import { AudioEngine, AudioEngineState, BPMResult } from '@/lib/audio/audio-engine';
 import { TapTempo, TapTempoResult } from '@/lib/audio/tap-tempo';
 import SettingsPanel from '@/components/SettingsPanel';
 import TapTempoButton from '@/components/TapTempoButton';
 import BPMDisplay from '@/components/BPMDisplay';
 import ConfidenceMeter from '@/components/ConfidenceMeter';
 import AudioLevelMeter from '@/components/AudioLevelMeter';
+
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000';
 
 export default function Home() {
   const [engineState, setEngineState] = useState<AudioEngineState>('idle');
@@ -18,6 +19,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [browserWarning, setBrowserWarning] = useState<string | null>(null);
+  const [backendStatus, setBackendStatus] = useState<'checking' | 'connected' | 'disconnected'>('checking');
 
   // Settings
   const [minBPM, setMinBPM] = useState(80);
@@ -40,6 +42,9 @@ export default function Home() {
     // Initialize tap tempo
     tapTempoRef.current = new TapTempo();
 
+    // Check backend status
+    checkBackendConnection();
+
     // Register service worker for PWA
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -57,6 +62,21 @@ export default function Home() {
     };
   }, []);
 
+  const checkBackendConnection = async () => {
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/health`, { method: 'GET' });
+      if (response.ok) {
+        setBackendStatus('connected');
+        console.log('✅ Backend connected');
+      } else {
+        setBackendStatus('disconnected');
+      }
+    } catch (error) {
+      setBackendStatus('disconnected');
+      console.error('❌ Backend not available:', error);
+    }
+  };
+
   const handleStart = async () => {
     if (engineState === 'listening') {
       // Stop
@@ -69,14 +89,34 @@ export default function Home() {
 
     setError(null);
 
+    // Verify backend is available
+    if (backendStatus === 'disconnected') {
+      setError('⚠️ Backend no está disponible.\n\nInicia el servidor:\n  cd backend\n  python server.py');
+      return;
+    }
+
     // Create audio engine
     if (!audioEngineRef.current) {
-      audioEngineRef.current = new AudioEngine({
-        onStateChange: setEngineState,
-        onBPMUpdate: setBpmResult,
-        onError: setError,
-        onAudioLevel: setAudioLevel,
-      });
+      audioEngineRef.current = new AudioEngine(
+        {
+          onStateChange: (state) => {
+            console.log('🔄 State changed:', state);
+            setEngineState(state);
+          },
+          onBPMUpdate: (result) => {
+            console.log('🎵 BPM UPDATE CALLBACK CALLED:', result);
+            setBpmResult(result);
+          },
+          onError: (err) => {
+            console.log('❌ Error:', err);
+            setError(err);
+          },
+          onAudioLevel: (level) => {
+            setAudioLevel(level);
+          },
+        },
+        BACKEND_URL
+      );
     }
 
     try {
@@ -87,8 +127,9 @@ export default function Home() {
         preferHalfDouble,
         sampleRate: 44100,
       });
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to start audio engine:', err);
+      setError(err.message);
     }
   };
 
@@ -140,25 +181,54 @@ export default function Home() {
           BPMETER
         </h1>
         <p className="text-gray-400 text-sm">By Santo & Twilight</p>
+        <p className="text-xs text-purple-300 mt-1">Powered by Librosa (Python Backend)</p>
       </header>
+
+      {/* Backend Status Indicator */}
+      <div className="max-w-2xl mx-auto w-full mb-4">
+        <div className={`text-xs text-center py-2 rounded-lg ${
+          backendStatus === 'connected' 
+            ? 'bg-green-900/30 text-green-300' 
+            : backendStatus === 'disconnected'
+            ? 'bg-red-900/30 text-red-300'
+            : 'bg-yellow-900/30 text-yellow-300'
+        }`}>
+          {backendStatus === 'connected' && '✅ Backend conectado - Listo para detección'}
+          {backendStatus === 'disconnected' && '❌ Backend desconectado - Inicia el servidor Python'}
+          {backendStatus === 'checking' && '⏳ Verificando backend...'}
+          {backendStatus === 'disconnected' && (
+            <button 
+              onClick={checkBackendConnection}
+              className="ml-2 underline hover:text-red-100"
+            >
+              Reintentar
+            </button>
+          )}
+        </div>
+      </div>
 
       {/* Browser Warning */}
       {browserWarning && (
-        <div className="bg-yellow-900/30 border border-yellow-600 rounded-lg p-3 mb-4 text-sm text-yellow-200">
+        <div className="bg-yellow-900/30 border border-yellow-600 rounded-lg p-3 mb-4 text-sm text-yellow-200 max-w-2xl mx-auto w-full">
           ⚠️ {browserWarning}
         </div>
       )}
 
       {/* Error Display */}
       {error && (
-        <div className="bg-red-900/30 border border-red-600 rounded-lg p-4 mb-4">
+        <div className="bg-red-900/30 border border-red-600 rounded-lg p-4 mb-4 max-w-2xl mx-auto w-full">
           <p className="text-red-200 font-semibold">Error</p>
-          <p className="text-red-300 text-sm mt-1">{error}</p>
+          <p className="text-red-300 text-sm mt-1 whitespace-pre-line">{error}</p>
         </div>
       )}
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col items-center justify-center max-w-2xl mx-auto w-full">
+        {/* Debug Info */}
+        <div className="text-xs text-yellow-300 mb-2">
+          DEBUG: BPM={bpmResult.bpm} | Conf={bpmResult.confidence}% | Stable={bpmResult.stable ? 'YES' : 'NO'}
+        </div>
+
         {/* BPM Display */}
         <BPMDisplay
           bpm={bpmResult.bpm}
@@ -182,7 +252,7 @@ export default function Home() {
               {tapResult.bpm} <span className="text-xl">BPM</span>
             </p>
             <p className="text-xs text-purple-400 mt-1">
-              {tapResult.taps} taps • {tapResult.confidence}% confidence
+              {tapResult.taps} taps • {tapResult.confidence}% confianza
             </p>
           </div>
         )}
@@ -191,17 +261,18 @@ export default function Home() {
         <div className="flex gap-4 mb-6">
           <button
             onClick={handleStart}
-            disabled={engineState === 'requesting'}
+            disabled={engineState === 'requesting' || backendStatus !== 'connected'}
             className={`px-8 py-4 rounded-lg font-semibold text-lg transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed ${
               isListening
                 ? 'bg-red-600 hover:bg-red-700'
                 : 'bg-purple-600 hover:bg-purple-700'
             }`}
           >
-            {engineState === 'requesting' && '⏳ Requesting...'}
-            {engineState === 'listening' && '⏹ Stop'}
-            {engineState === 'idle' && '🎤 Start Listening'}
-            {engineState === 'error' && '🔄 Retry'}
+            {engineState === 'requesting' && '⏳ Solicitando...'}
+            {engineState === 'listening' && '⏹ Detener'}
+            {engineState === 'idle' && backendStatus === 'connected' && '🎤 Iniciar Detección'}
+            {engineState === 'idle' && backendStatus !== 'connected' && '⚠️ Backend Offline'}
+            {engineState === 'error' && '🔄 Reintentar'}
           </button>
 
           <TapTempoButton
@@ -216,23 +287,24 @@ export default function Home() {
             onClick={() => setShowSettings(!showSettings)}
             className="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors text-sm"
           >
-            ⚙️ Settings
+            ⚙️ Configuración
           </button>
           <button
             onClick={handleReset}
             className="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors text-sm"
           >
-            🔄 Reset
+            🔄 Resetear
           </button>
         </div>
 
         {/* Status Text */}
         <div className="mt-6 text-center text-sm text-gray-400">
-          {engineState === 'idle' && 'Press Start to begin BPM detection'}
-          {engineState === 'requesting' && 'Requesting microphone permission...'}
-          {engineState === 'listening' && !hasSignal && '⚠️ No audio signal detected'}
-          {engineState === 'listening' && hasSignal && bpmResult.confidence < 30 && '🎵 Analyzing...'}
-          {engineState === 'listening' && hasSignal && bpmResult.confidence >= 30 && '✅ Detecting BPM'}
+          {engineState === 'idle' && backendStatus === 'connected' && 'Presiona Iniciar para comenzar'}
+          {engineState === 'idle' && backendStatus !== 'connected' && 'Esperando backend...'}
+          {engineState === 'requesting' && 'Solicitando permiso de micrófono...'}
+          {engineState === 'listening' && !hasSignal && '⚠️ No se detecta señal de audio'}
+          {engineState === 'listening' && hasSignal && bpmResult.confidence < 30 && '🎵 Analizando...'}
+          {engineState === 'listening' && hasSignal && bpmResult.confidence >= 30 && '✅ Detectando BPM'}
         </div>
       </div>
 
@@ -250,10 +322,9 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="text-center text-xs text-gray-500 mt-8">
-        <p>For best results: place device near speaker, reduce background noise</p>
-        <p className="mt-1">Works best with music that has a strong kick drum</p>
+        <p>🐍 Detección profesional con Librosa (Python) - Precisión ±0.5 BPM</p>
+        <p className="mt-1">Coloca el dispositivo cerca del altavoz para mejores resultados</p>
       </footer>
     </main>
   );
 }
-

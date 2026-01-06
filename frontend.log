@@ -1,0 +1,14 @@
+
+> bpmeter@1.0.0 dev
+> next dev
+
+  ▲ Next.js 14.2.35
+  - Local:        http://localhost:3000
+
+ ✓ Starting...
+ ✓ Ready in 2.4s
+ ○ Compiling / ...
+ ✓ Compiled / in 2.3s (477 modules)
+ GET / 200 in 1758ms
+ ✓ Compiled /_not-found in 815ms (466 modules)
+ GET /.well-known/appspecific/com.chrome.devtools.json 404 in 664ms
