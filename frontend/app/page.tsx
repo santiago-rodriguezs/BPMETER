@@ -127,6 +127,24 @@ export default function Home() {
     }
   };
 
+  // Apply half/double tempo preference (client-side adjustment)
+  const getAdjustedBPM = (rawBPM: number): number => {
+    if (!preferHalfDouble || rawBPM === 0) return rawBPM;
+
+    const targetMin = minBPM;
+    const targetMax = maxBPM;
+
+    // If BPM is out of configured range, try to adjust by doubling or halving
+    if (rawBPM < targetMin && rawBPM * 2 >= targetMin && rawBPM * 2 <= targetMax) {
+      return rawBPM * 2; // Double it
+    }
+    if (rawBPM > targetMax && rawBPM / 2 >= targetMin && rawBPM / 2 <= targetMax) {
+      return rawBPM / 2; // Halve it
+    }
+
+    return rawBPM;
+  };
+
   const handleTap = () => {
     if (tapTempoRef.current) {
       const result = tapTempoRef.current.tap();
@@ -188,7 +206,7 @@ export default function Home() {
         {/* Main Display */}
         <div className="flex-1 flex flex-col items-center justify-center px-4 py-8">
           <BPMDisplay
-            bpm={bpmResult.bpm}
+            bpm={getAdjustedBPM(bpmResult.bpm)}
             stable={bpmResult.stable}
             isListening={isListening}
             hasSignal={hasSignal}

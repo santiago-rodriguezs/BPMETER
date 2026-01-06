@@ -25,6 +25,8 @@ class BPMDetector:
         self.max_history_seconds = 10
         self.last_bpm = None
         self.bpm_history = []
+        self.min_bpm = 40
+        self.max_bpm = 200
         
     def process_audio_chunk(self, audio_data, sr=44100):
         """
@@ -107,22 +109,22 @@ class BPMDetector:
             else:
                 tempo_ac = tempo_onset
             
-            # Combine methods with intelligent weighting
+            # Combine methods with intelligent weighting (using configured range)
             tempos = []
             weights = []
             
             # Add onset tempo
-            if 40 <= tempo_onset <= 200:
+            if self.min_bpm <= tempo_onset <= self.max_bpm:
                 tempos.append(float(tempo_onset))
                 weights.append(0.4)
             
             # Add tempogram tempo
-            if 40 <= tempo_tempogram <= 200:
+            if self.min_bpm <= tempo_tempogram <= self.max_bpm:
                 tempos.append(float(tempo_tempogram))
                 weights.append(0.3)
             
             # Add autocorrelation tempo
-            if 40 <= tempo_ac <= 200:
+            if self.min_bpm <= tempo_ac <= self.max_bpm:
                 tempos.append(float(tempo_ac))
                 weights.append(0.3)
             
@@ -214,7 +216,10 @@ def detect_bpm():
     Expected format:
     {
         "audio": "base64_encoded_float32_array",
-        "sampleRate": 44100
+        "sampleRate": 44100,
+        "minBPM": 80,
+        "maxBPM": 160,
+        "smoothing": "medium"
     }
     """
     try:
@@ -226,6 +231,11 @@ def detect_bpm():
         # Decode base64 audio data
         audio_base64 = data.get('audio')
         sample_rate = data.get('sampleRate', 44100)
+        
+        # Get settings from request (optional)
+        min_bpm = data.get('minBPM', 40)
+        max_bpm = data.get('maxBPM', 200)
+        smoothing = data.get('smoothing', 'medium')
         
         if not audio_base64:
             return jsonify({"error": "No audio data provided"}), 400
@@ -239,6 +249,14 @@ def detect_bpm():
         # Validate audio data
         if len(audio_array) == 0:
             return jsonify({"error": "Empty audio data"}), 400
+        
+        # Apply settings
+        detector.min_bpm = min_bpm
+        detector.max_bpm = max_bpm
+        
+        # Adjust smoothing
+        smoothing_map = {'low': 5, 'medium': 10, 'high': 15}
+        detector.max_history_seconds = smoothing_map.get(smoothing, 10)
         
         # Process with librosa
         result = detector.process_audio_chunk(audio_array, sr=sample_rate)

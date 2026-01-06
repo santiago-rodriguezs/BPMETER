@@ -45,6 +45,7 @@ export class AudioEngine {
   private lastSendTime: number = 0;
   private audioBuffer: Float32Array[] = [];
   private isConnected: boolean = false;
+  private config: BPMEstimatorConfig | null = null;
 
   constructor(callbacks: AudioEngineCallbacks, backendUrl: string = 'http://localhost:5000') {
     this.callbacks = callbacks;
@@ -82,6 +83,9 @@ export class AudioEngine {
         await this.audioContext.resume();
       }
 
+      // Store config
+      this.config = config;
+      
       // Create nodes
       this.sourceNode = this.audioContext.createMediaStreamSource(this.mediaStream);
       this.analyserNode = this.audioContext.createAnalyser();
@@ -176,13 +180,16 @@ export class AudioEngine {
       // Convert to base64
       const audioBase64 = this.float32ToBase64(combined);
 
-      // Send to backend
+      // Send to backend with settings
       const response = await fetch(`${this.backendUrl}/api/detect-bpm`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           audio: audioBase64,
           sampleRate: this.audioContext?.sampleRate || 44100,
+          minBPM: this.config?.minBPM || 40,
+          maxBPM: this.config?.maxBPM || 200,
+          smoothing: this.config?.smoothing || 'medium',
         }),
       });
 
@@ -313,8 +320,10 @@ export class AudioEngine {
   }
   
   updateConfig(config: Partial<BPMEstimatorConfig>): void {
-    // Config is handled by backend, no action needed here
-    console.log('⚙️ Config updated (handled by backend):', config);
+    if (this.config) {
+      this.config = { ...this.config, ...config };
+      console.log('⚙️ Config updated (will apply on next request):', this.config);
+    }
   }
 
   getState(): AudioEngineState {
