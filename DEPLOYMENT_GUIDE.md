@@ -33,7 +33,10 @@ Tu frontend ya está conectado a Vercel y se deploya automáticamente.
    - **Branch**: `main` (o tu rama principal)
    - **Root Directory**: `backend`
    - **Build Command**: `pip install -r requirements.txt`
-   - **Start Command**: `gunicorn --bind 0.0.0.0:$PORT --workers 2 --threads 4 --timeout 120 server:app`
+   - **Start Command**: `gunicorn --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 120 server:app`
+   
+   ⚠️ **IMPORTANTE**: Usa `--workers 1` (no 2 o más). El backend necesita mantener estado (historial de audio) 
+   y múltiples workers causan que el historial se distribuya entre procesos separados.
 
 4. **Environment Variables** (Advanced):
    ```
@@ -107,6 +110,12 @@ Si prefieres Railway en lugar de Render:
 ### CORS errors en console
 - Actualiza los `origins` en `server.py` con tu dominio real de Vercel
 - Redeploy el backend en Render
+
+### BPM siempre es 0 en producción (pero funciona en local)
+- **Causa**: Múltiples workers de Gunicorn distribuyen las requests
+- **Solución**: Usar `--workers 1` en el Start Command
+- El backend necesita acumular historial de audio (3+ segundos) en un solo proceso
+- Con múltiples workers, cada uno tiene su propio historial separado y nunca acumula suficiente
 
 ### Backend muy lento
 - Render tier gratis se "duerme" después de 15 min sin uso

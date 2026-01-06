@@ -58,13 +58,22 @@ export default function Home() {
 
   const checkBackendConnection = async () => {
     try {
-      const response = await fetch(`${BACKEND_URL}/api/health`, { method: 'GET' });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 sec timeout
+      
+      const response = await fetch(`${BACKEND_URL}/api/health`, { 
+        method: 'GET',
+        signal: controller.signal 
+      });
+      clearTimeout(timeoutId);
+      
       if (response.ok) {
         setBackendStatus('connected');
       } else {
         setBackendStatus('disconnected');
       }
     } catch (error) {
+      console.error('Backend check failed:', error);
       setBackendStatus('disconnected');
     }
   };
@@ -80,9 +89,17 @@ export default function Home() {
 
     setError(null);
 
+    // If backend is disconnected, try to wake it up
     if (backendStatus === 'disconnected') {
-      setError('Backend no disponible. Inicia: python server.py');
-      return;
+      setError('⏳ Despertando backend (puede tardar ~30 seg en tier gratis)...');
+      setBackendStatus('checking');
+      await checkBackendConnection();
+      
+      if (backendStatus === 'disconnected') {
+        setError('❌ Backend no disponible. Verifica que el servidor esté corriendo.');
+        return;
+      }
+      setError(null);
     }
 
     if (!audioEngineRef.current) {
