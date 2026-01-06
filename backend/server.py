@@ -10,13 +10,24 @@ import numpy as np
 import base64
 from scipy.signal import find_peaks
 import logging
+import os
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for frontend
+
+# Configure CORS based on environment
+if os.environ.get('FLASK_ENV') == 'production':
+    # In production, allow your Vercel domain
+    CORS(app, origins=[
+        'https://*.vercel.app',
+        'https://bpmeter.vercel.app',  # 👈 Replace with your actual Vercel domain
+    ])
+else:
+    # In development, allow localhost
+    CORS(app)
 
 class BPMDetector:
     def __init__(self):
@@ -292,12 +303,16 @@ def internal_error(error):
     return jsonify({"error": "Internal server error"}), 500
 
 if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5000))
+    debug = os.environ.get('FLASK_ENV') != 'production'
+    
     logger.info("=" * 60)
     logger.info("🎵 BPMETER Backend Server")
     logger.info("=" * 60)
     logger.info("Backend: Librosa (Python)")
     logger.info("Accuracy: ±0.5 BPM")
-    logger.info("Starting on http://localhost:5000")
+    logger.info(f"Environment: {'Production' if not debug else 'Development'}")
+    logger.info(f"Starting on http://0.0.0.0:{port}")
     logger.info("=" * 60)
     
-    app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)
+    app.run(host='0.0.0.0', port=port, debug=debug, threaded=True)
