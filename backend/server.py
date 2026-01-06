@@ -22,8 +22,8 @@ app = Flask(__name__)
 if os.environ.get('FLASK_ENV') == 'production':
     # In production, allow your Vercel domain
     CORS(app, origins=[
+        'https://bpmeter-bay.vercel.app',
         'https://*.vercel.app',
-        'https://bpmeter.vercel.app',  # 👈 Replace with your actual Vercel domain
     ])
 else:
     # In development, allow localhost
