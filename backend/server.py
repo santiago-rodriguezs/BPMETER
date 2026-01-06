@@ -220,7 +220,7 @@ class BPMDetector:
             return result
             
         except Exception as e:
-            logger.error(f"Error in BPM detection: {e}", exc_info=True)
+            logger.error(f"💥 ERROR in BPM detection: {type(e).__name__}: {str(e)}", exc_info=True)
             return {
                 "bpm": self.last_bpm or 0,
                 "confidence": 0,
