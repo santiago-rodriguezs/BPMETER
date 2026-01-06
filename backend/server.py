@@ -76,6 +76,8 @@ class BPMDetector:
         
         # Detect BPM using librosa
         try:
+            logger.info("🔬 Starting BPM detection with Librosa...")
+            
             # Method 1: Onset-based tempo estimation
             onset_env = librosa.onset.onset_strength(
                 y=full_audio,
@@ -85,12 +87,16 @@ class BPMDetector:
                 n_mels=128
             )
             
+            logger.info(f"📈 Onset envelope: shape={onset_env.shape}, mean={np.mean(onset_env):.4f}, max={np.max(onset_env):.4f}")
+            
             # Get tempo from onset envelope
             tempo_onset, beats_onset = librosa.beat.beat_track(
                 onset_envelope=onset_env,
                 sr=sr,
                 units='time'
             )
+            
+            logger.info(f"🥁 Method 1 (Onset): tempo={tempo_onset:.1f} BPM, beats={len(beats_onset)}")
             
             # Method 2: Tempogram-based detection (more robust)
             hop_length = 512
@@ -105,6 +111,8 @@ class BPMDetector:
             tempo_power = np.mean(tempogram, axis=1)
             tempo_tempogram = tempo_freqs[np.argmax(tempo_power)]
             
+            logger.info(f"🎹 Method 2 (Tempogram): tempo={tempo_tempogram:.1f} BPM")
+            
             # Method 3: Autocorrelation with peak picking
             ac = librosa.autocorrelate(onset_env)
             
@@ -117,36 +125,52 @@ class BPMDetector:
                 prominence=np.std(ac) * 0.5
             )
             
+            logger.info(f"📊 Method 3 (Autocorr): found {len(peaks)} peaks")
+            
             if len(peaks) > 0:
                 # Get best peak
                 best_peak_idx = peaks[np.argmax(properties['peak_heights'])]
                 tempo_ac = (60 * sr) / (best_peak_idx * hop_length)
+                logger.info(f"🎯 Method 3 result: tempo={tempo_ac:.1f} BPM")
             else:
                 tempo_ac = tempo_onset
+                logger.warning("⚠️ Method 3: No peaks found, using onset tempo")
             
             # Combine methods with intelligent weighting (using configured range)
             tempos = []
             weights = []
             
+            logger.info(f"🎚️ BPM range filter: {self.min_bpm}-{self.max_bpm}")
+            
             # Add onset tempo
             if self.min_bpm <= tempo_onset <= self.max_bpm:
                 tempos.append(float(tempo_onset))
                 weights.append(0.4)
+                logger.info(f"✅ Onset tempo {tempo_onset:.1f} is in range")
+            else:
+                logger.warning(f"❌ Onset tempo {tempo_onset:.1f} is OUT OF RANGE")
             
             # Add tempogram tempo
             if self.min_bpm <= tempo_tempogram <= self.max_bpm:
                 tempos.append(float(tempo_tempogram))
                 weights.append(0.3)
+                logger.info(f"✅ Tempogram tempo {tempo_tempogram:.1f} is in range")
+            else:
+                logger.warning(f"❌ Tempogram tempo {tempo_tempogram:.1f} is OUT OF RANGE")
             
             # Add autocorrelation tempo
             if self.min_bpm <= tempo_ac <= self.max_bpm:
                 tempos.append(float(tempo_ac))
                 weights.append(0.3)
+                logger.info(f"✅ Autocorr tempo {tempo_ac:.1f} is in range")
+            else:
+                logger.warning(f"❌ Autocorr tempo {tempo_ac:.1f} is OUT OF RANGE")
             
             if len(tempos) == 0:
                 # Fallback to onset
                 final_bpm = float(tempo_onset)
                 confidence = 30
+                logger.warning(f"⚠️ NO TEMPOS IN RANGE! Using fallback: {final_bpm:.1f} BPM")
             else:
                 # Weighted average
                 final_bpm = np.average(tempos, weights=weights)
@@ -154,6 +178,7 @@ class BPMDetector:
                 # Confidence based on agreement between methods
                 std_dev = np.std(tempos)
                 confidence = max(0, min(100, 100 - std_dev * 3))
+                logger.info(f"✨ Combined result: {final_bpm:.1f} BPM (confidence={confidence:.0f}%, std={std_dev:.1f})")
             
             # Apply temporal smoothing
             self.bpm_history.append(final_bpm)
