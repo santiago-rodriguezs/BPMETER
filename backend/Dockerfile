@@ -20,6 +20,6 @@ COPY server.py .
 # Expose port
 EXPOSE 5000
 
-# Run server with Gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--threads", "4", "--timeout", "120", "--log-level", "info", "server:app"]
+# Run server with Gunicorn (single worker for stateful BPM detection)
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "1", "--threads", "4", "--timeout", "120", "--log-level", "info", "server:app"]
 
