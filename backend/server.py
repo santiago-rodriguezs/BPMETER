@@ -60,9 +60,13 @@ class BPMDetector:
             return {"bpm": 0, "confidence": 0, "stable": False}
         
         full_audio = np.concatenate(self.history)
+        accumulated_seconds = len(full_audio) / sr
+        
+        logger.info(f"📦 Accumulated audio: {accumulated_seconds:.2f}s ({len(self.history)} chunks)")
         
         # Need at least 3 seconds for reliable detection
         if len(full_audio) < 3 * sr:
+            logger.info(f"⏳ Waiting for more audio... ({accumulated_seconds:.1f}s / 3.0s)")
             return {
                 "bpm": self.last_bpm or 0,
                 "confidence": 0,
