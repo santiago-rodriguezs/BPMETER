@@ -261,9 +261,15 @@ def detect_bpm():
         if len(audio_array) == 0:
             return jsonify({"error": "Empty audio data"}), 400
         
+        # Log audio info for debugging
+        audio_duration = len(audio_array) / sample_rate
+        audio_rms = np.sqrt(np.mean(audio_array**2))
+        logger.info(f"📊 Received audio: {len(audio_array)} samples ({audio_duration:.2f}s), RMS={audio_rms:.4f}, SR={sample_rate}")
+        
         # Apply settings
         detector.min_bpm = min_bpm
         detector.max_bpm = max_bpm
+        logger.info(f"⚙️ Settings: BPM range={min_bpm}-{max_bpm}, smoothing={smoothing}")
         
         # Adjust smoothing
         smoothing_map = {'low': 5, 'medium': 10, 'high': 15}
@@ -271,6 +277,7 @@ def detect_bpm():
         
         # Process with librosa
         result = detector.process_audio_chunk(audio_array, sr=sample_rate)
+        logger.info(f"🎵 Result: BPM={result.get('bpm', 0)}, Confidence={result.get('confidence', 0)}%")
         
         return jsonify(result)
         
