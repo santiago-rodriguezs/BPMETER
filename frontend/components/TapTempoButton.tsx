@@ -9,15 +9,15 @@ export default function TapTempoButton({ onTap, tapCount }: TapTempoButtonProps)
   return (
     <button
       onClick={onTap}
-      className="px-6 py-4 rounded-lg bg-indigo-600 hover:bg-indigo-700 transition-all transform hover:scale-105 font-semibold relative"
+      className="relative p-4 rounded-full bg-white/5 backdrop-blur-xl border border-white/10 hover:bg-white/10 transition-all duration-300 transform hover:scale-105 group"
+      title="Tap Tempo"
     >
-      <span className="text-lg">👆 Tap Tempo</span>
+      <span className="text-xl">👆</span>
       {tapCount > 0 && (
-        <span className="absolute -top-2 -right-2 bg-pink-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-bold">
+        <span className="absolute -top-1 -right-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold animate-in zoom-in">
           {tapCount}
         </span>
       )}
     </button>
   );
 }
-

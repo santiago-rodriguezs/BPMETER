@@ -12,3 +12,12 @@
  GET / 200 in 1758ms
  ✓ Compiled /_not-found in 815ms (466 modules)
  GET /.well-known/appspecific/com.chrome.devtools.json 404 in 664ms
+ ✓ Compiled in 1151ms (477 modules)
+ ✓ Compiled in 615ms (477 modules)
+ ✓ Compiled in 451ms (477 modules)
+ ✓ Compiled in 468ms (477 modules)
+ ✓ Compiled in 433ms (477 modules)
+ ✓ Compiled in 679ms (477 modules)
+ ✓ Compiled in 2.4s (477 modules)
+ ✓ Compiled in 1095ms (247 modules)
+ ✓ Compiled in 1814ms (477 modules)
